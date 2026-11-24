@@ -13,6 +13,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -33,6 +34,8 @@ public class AccountView {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
 
     private interface Action { String run() throws BankException; }
+    private interface AccountAction { String run(Account account) throws BankException; }
+    private interface Getter<T> { String get(T item); }
 
     private final AccountController controller;
     private final BorderPane root = new BorderPane();
@@ -53,36 +56,55 @@ public class AccountView {
     public AccountView(AccountController controller, Runnable onLogout) {
         this.controller = controller;
 
+        // ---- top bar ----
         Label welcome = new Label("Welcome, " + controller.getCustomer().getDisplayName());
-        welcome.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1f3864;");
-        totalLabel.setStyle("-fx-font-size: 15px;");
+        welcome.getStyleClass().add("welcome-label");
+        Label welcomeSub = new Label(controller.getCustomer().getCustomerType().equals("COMPANY")
+                ? "Company account holder" : "Personal account holder");
+        welcomeSub.getStyleClass().add("welcome-sub");
+        VBox welcomeBox = new VBox(2, welcome, welcomeSub);
+
+        Label chipCaption = new Label("TOTAL BALANCE");
+        chipCaption.getStyleClass().add("chip-caption");
+        totalLabel.getStyleClass().add("chip-amount");
+        VBox balanceChip = new VBox(2, chipCaption, totalLabel);
+        balanceChip.getStyleClass().add("balance-chip");
+
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button logout = new Button("Log out");
+        logout.getStyleClass().add("ghost");
         logout.setOnAction(e -> onLogout.run());
-        HBox top = new HBox(16, welcome, spacer, totalLabel, logout);
+        HBox top = new HBox(18, welcomeBox, spacer, balanceChip, logout);
         top.setAlignment(Pos.CENTER_LEFT);
-        top.setPadding(new Insets(14, 16, 14, 16));
-        top.setStyle("-fx-background-color: #eef2f9;");
+        top.getStyleClass().add("top-bar");
 
+        // ---- centre: tables ----
         buildAccountTable();
         buildTransactionTable();
         Label accountsTitle = new Label("Your accounts");
-        accountsTitle.setStyle("-fx-font-weight: bold;");
-        Label historyTitle = new Label("Transaction history (selected account)");
-        historyTitle.setStyle("-fx-font-weight: bold;");
+        accountsTitle.getStyleClass().add("section-title");
+        Label historyTitle = new Label("Transaction history");
+        historyTitle.getStyleClass().add("section-title");
+        Label historyHint = new Label("Click an account above to see its transactions");
+        historyHint.getStyleClass().add("hint");
+        HBox historyHeader = new HBox(10, historyTitle, historyHint);
+        historyHeader.setAlignment(Pos.BASELINE_LEFT);
         VBox.setVgrow(accountTable, Priority.ALWAYS);
         VBox.setVgrow(transactionTable, Priority.ALWAYS);
-        VBox center = new VBox(6, accountsTitle, accountTable, historyTitle, transactionTable);
-        center.setPadding(new Insets(12));
+        VBox center = new VBox(8, accountsTitle, accountTable, historyHeader, transactionTable);
+        center.setPadding(new Insets(20, 12, 16, 24));
 
-        statusLabel.setPadding(new Insets(8, 16, 8, 16));
+        // ---- bottom status bar ----
+        statusLabel.getStyleClass().add("status-info");
         statusLabel.setWrapText(true);
+        HBox statusBar = new HBox(statusLabel);
+        statusBar.getStyleClass().add("status-bar");
 
         root.setTop(top);
         root.setCenter(center);
         root.setRight(buildActions());
-        root.setBottom(statusLabel);
+        root.setBottom(statusBar);
 
         accountTable.getSelectionModel().selectedItemProperty().addListener((obs, old, now) -> loadHistory());
         refreshAll();
@@ -98,12 +120,26 @@ public class AccountView {
         accountTable.getColumns().add(column("Branch", 130, a -> a.getBranch()));
         accountTable.getColumns().add(column("Balance", 130, a -> String.format("BWP %,.2f", a.getBalance())));
         accountTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        accountTable.setPlaceholder(new Label("No accounts yet. Open one on the right."));
+        accountTable.setPlaceholder(new Label("No accounts yet. Open one using the panel on the right."));
     }
 
     private void buildTransactionTable() {
         transactionTable.getColumns().add(txColumn("Date", 150, t -> t.getTimestamp().format(DATE_FORMAT)));
-        transactionTable.getColumns().add(txColumn("Type", 100, t -> t.getType()));
+        TableColumn<Transaction, String> typeCol = txColumn("Type", 110, t -> t.getType());
+        typeCol.setCellFactory(col -> new TableCell<Transaction, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().removeAll("tx-deposit", "tx-withdrawal", "tx-interest");
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    getStyleClass().add("tx-" + item.toLowerCase());
+                }
+            }
+        });
+        transactionTable.getColumns().add(typeCol);
         transactionTable.getColumns().add(txColumn("Amount", 110, t -> String.format("BWP %,.2f", t.getAmount())));
         transactionTable.getColumns().add(txColumn("Balance after", 120, t -> String.format("BWP %,.2f", t.getBalanceAfter())));
         transactionTable.getColumns().add(txColumn("Description", 200, t -> t.getDescription()));
@@ -115,22 +151,30 @@ public class AccountView {
         // Deposit / withdraw
         amountField.setPromptText("Amount (BWP)");
         Button deposit = new Button("Deposit");
+        deposit.getStyleClass().add("primary");
         Button withdraw = new Button("Withdraw");
+        withdraw.getStyleClass().add("secondary");
+        deposit.setMaxWidth(Double.MAX_VALUE);
+        withdraw.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(deposit, Priority.ALWAYS);
+        HBox.setHgrow(withdraw, Priority.ALWAYS);
         deposit.setOnAction(e -> withSelectedAccount(acc -> "Deposit successful. New balance: BWP "
                 + String.format("%,.2f", controller.deposit(acc.getAccountNumber(), amountField.getText()))));
         withdraw.setOnAction(e -> withSelectedAccount(acc -> "Withdrawal successful. New balance: BWP "
                 + String.format("%,.2f", controller.withdraw(acc.getAccountNumber(), amountField.getText()))));
-        TitledPane moneyPane = new TitledPane("Deposit / Withdraw",
-                new VBox(8, amountField, new HBox(8, deposit, withdraw)));
-        moneyPane.setCollapsible(false);
+        TitledPane moneyPane = card("Deposit / Withdraw",
+                new VBox(10, amountField, new HBox(8, deposit, withdraw)));
 
         // Open account
         typeChoice.getItems().addAll("Savings", "Investment", "Cheque");
         typeChoice.setValue("Savings");
+        typeChoice.setMaxWidth(Double.MAX_VALUE);
         openingDeposit.setPromptText("Opening deposit (BWP)");
         employerName.setPromptText("Employer name");
         employerAddress.setPromptText("Employer address");
-        employerBox.getChildren().addAll(new Label("Employer details (Cheque only)"), employerName, employerAddress);
+        Label employerLabel = new Label("Employer details (Cheque only)");
+        employerLabel.getStyleClass().add("field-label");
+        employerBox.getChildren().addAll(employerLabel, employerName, employerAddress);
         employerBox.setVisible(false);
         employerBox.setManaged(false);
         typeChoice.valueProperty().addListener((obs, old, now) -> {
@@ -139,30 +183,42 @@ public class AccountView {
             employerBox.setManaged(cheque);
         });
         Button open = new Button("Open account");
+        open.getStyleClass().add("primary");
+        open.setMaxWidth(Double.MAX_VALUE);
         open.setOnAction(e -> run(() -> {
             Account a = controller.openAccount(typeChoice.getValue(), openingDeposit.getText(),
                     employerName.getText(), employerAddress.getText());
             openingDeposit.clear();
             return a.getTypeLabel() + " account " + a.getAccountNumber() + " opened.";
         }));
-        TitledPane openPane = new TitledPane("Open a new account",
-                new VBox(8, typeChoice, openingDeposit, employerBox, open));
-        openPane.setCollapsible(false);
+        TitledPane openPane = card("Open a new account",
+                new VBox(10, typeChoice, openingDeposit, employerBox, open));
 
         // Interest
+        Label rates = new Label("Investment earns 5% and Savings 0.05% per month.");
+        rates.getStyleClass().add("hint");
+        rates.setWrapText(true);
         Button interest = new Button("Pay monthly interest");
+        interest.getStyleClass().add("accent");
+        interest.setMaxWidth(Double.MAX_VALUE);
         interest.setOnAction(e -> run(() -> {
             double paid = controller.payInterestOnAllAccounts();
             return String.format("Interest paid: BWP %,.2f in total.", paid);
         }));
-        TitledPane interestPane = new TitledPane("Interest", new VBox(8,
-                new Label("Investment 5% and Savings 0.05% per month"), interest));
-        interestPane.setCollapsible(false);
+        TitledPane interestPane = card("Interest", new VBox(10, rates, interest));
 
-        VBox box = new VBox(12, moneyPane, openPane, interestPane);
-        box.setPadding(new Insets(12));
-        box.setPrefWidth(300);
+        VBox box = new VBox(14, moneyPane, openPane, interestPane);
+        box.setPadding(new Insets(20, 24, 16, 12));
+        box.setPrefWidth(320);
+        box.setMinWidth(320);
         return box;
+    }
+
+    private TitledPane card(String title, VBox content) {
+        TitledPane pane = new TitledPane(title, content);
+        pane.setCollapsible(false);
+        pane.getStyleClass().add("card");
+        return pane;
     }
 
     // ----------------------------------------------------------------- helpers
@@ -175,8 +231,6 @@ public class AccountView {
         }
         run(() -> action.run(selected));
     }
-
-    private interface AccountAction { String run(Account account) throws BankException; }
 
     private void run(Action action) {
         try {
@@ -191,7 +245,7 @@ public class AccountView {
         Account selected = accountTable.getSelectionModel().getSelectedItem();
         String selectedNumber = selected == null ? null : selected.getAccountNumber();
         accountItems.setAll(controller.getAccounts());
-        totalLabel.setText(String.format("Total balance: BWP %,.2f", controller.getTotalBalance()));
+        totalLabel.setText(String.format("BWP %,.2f", controller.getTotalBalance()));
         if (selectedNumber != null) {
             for (Account a : accountItems) {
                 if (a.getAccountNumber().equals(selectedNumber)) {
@@ -218,10 +272,9 @@ public class AccountView {
 
     private void showStatus(String message, boolean error) {
         statusLabel.setText(message);
-        statusLabel.setStyle("-fx-text-fill: " + (error ? "#b00020" : "#1b7a2f") + ";");
+        statusLabel.getStyleClass().removeAll("status-success", "status-error", "status-info");
+        statusLabel.getStyleClass().add(error ? "status-error" : "status-success");
     }
-
-    private interface Getter<T> { String get(T item); }
 
     private TableColumn<Account, String> column(String title, double width, Getter<Account> getter) {
         TableColumn<Account, String> col = new TableColumn<>(title);

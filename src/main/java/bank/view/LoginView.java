@@ -4,7 +4,7 @@ import bank.controller.LoginController;
 import bank.model.BankException;
 import bank.model.Customer;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
@@ -14,7 +14,6 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 
 import java.util.function.Consumer;
@@ -41,82 +40,95 @@ public class LoginView {
     private final TextField regUser = new TextField();
     private final PasswordField regPass = new PasswordField();
     private final Label regStatus = new Label();
-    private final Label firstLabel = new Label("First name");
-    private final Label surnameLabel = new Label("Surname");
-    private final Label companyLabel = new Label("Company name");
+    private final Label firstLabel = fieldLabel("First name");
+    private final Label surnameLabel = fieldLabel("Surname");
+    private final Label companyLabel = fieldLabel("Company name");
 
     public LoginView(LoginController controller, Consumer<Customer> onLoginSuccess) {
         this.controller = controller;
         this.onLoginSuccess = onLoginSuccess;
 
         Label title = new Label("Banking System");
-        title.setStyle("-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #1f3864;");
-        Label subtitle = new Label("Sign in or create a customer profile");
-        VBox header = new VBox(4, title, subtitle);
-        header.setPadding(new Insets(24, 24, 8, 24));
+        title.getStyleClass().add("app-title");
+        Label subtitle = new Label("Secure banking for individuals and companies");
+        subtitle.getStyleClass().add("app-subtitle");
+        VBox header = new VBox(6, title, subtitle);
+        header.getStyleClass().add("app-header");
 
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(buildLoginTab(), buildRegisterTab());
+
+        VBox card = new VBox(tabs);
+        card.getStyleClass().add("card");
+        card.setPadding(new Insets(8, 4, 4, 4));
+        BorderPane.setMargin(card, new Insets(22, 28, 28, 28));
+
         root.setTop(header);
-        root.setCenter(tabs);
+        root.setCenter(card);
     }
 
     public Parent getRoot() { return root; }
 
     private Tab buildLoginTab() {
-        loginUser.setPromptText("Username");
-        loginPass.setPromptText("Password");
+        loginUser.setPromptText("Enter your username");
+        loginPass.setPromptText("Enter your password");
         Button loginButton = new Button("Log in");
+        loginButton.getStyleClass().add("primary");
         loginButton.setDefaultButton(true);
         loginButton.setMaxWidth(Double.MAX_VALUE);
         loginButton.setOnAction(e -> doLogin());
         loginPass.setOnAction(e -> doLogin());
 
-        VBox box = new VBox(10, new Label("Username"), loginUser, new Label("Password"), loginPass,
-                loginButton, loginStatus);
-        box.setPadding(new Insets(24));
+        Label welcome = new Label("Welcome back");
+        welcome.getStyleClass().add("section-title");
+        Label hint = new Label("Log in to view your accounts and make transactions.");
+        hint.getStyleClass().add("hint");
+        hint.setWrapText(true);
+
+        VBox box = new VBox(8, welcome, hint, spacer(6), fieldLabel("Username"), loginUser,
+                fieldLabel("Password"), loginPass, spacer(6), loginButton, loginStatus);
+        box.setPadding(new Insets(20, 24, 24, 24));
         return new Tab("Login", box);
     }
 
     private Tab buildRegisterTab() {
         typeChoice.getItems().addAll("Individual", "Company");
         typeChoice.setValue("Individual");
+        typeChoice.setMaxWidth(Double.MAX_VALUE);
         typeChoice.valueProperty().addListener((obs, old, now) -> updateRegistrationFields());
+        firstName.setPromptText("e.g. Owen");
+        surname.setPromptText("e.g. Koketso");
+        companyName.setPromptText("e.g. Acme Ltd");
         address.setPromptText("Street, city");
         phone.setPromptText("e.g. 71234567");
         regUser.setPromptText("Choose a username");
         regPass.setPromptText("At least 6 characters");
 
-        GridPane grid = new GridPane();
-        grid.setHgap(12);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(24));
-        int r = 0;
-        grid.addRow(r++, new Label("Customer type"), typeChoice);
-        grid.addRow(r++, firstLabel, firstName);
-        grid.addRow(r++, surnameLabel, surname);
-        grid.addRow(r++, companyLabel, companyName);
-        grid.addRow(r++, new Label("Address"), address);
-        grid.addRow(r++, new Label("Phone"), phone);
-        grid.addRow(r++, new Label("Username"), regUser);
-        grid.addRow(r++, new Label("Password"), regPass);
-
-        Button register = new Button("Register");
+        Button register = new Button("Create profile");
+        register.getStyleClass().add("primary");
+        register.setMaxWidth(Double.MAX_VALUE);
         register.setOnAction(e -> doRegister());
-        VBox box = new VBox(12, grid, register, regStatus);
-        box.setAlignment(Pos.TOP_LEFT);
-        box.setPadding(new Insets(0, 24, 24, 0));
+
+        VBox form = new VBox(6,
+                fieldLabel("Customer type"), typeChoice,
+                firstLabel, firstName, surnameLabel, surname, companyLabel, companyName,
+                fieldLabel("Address"), address,
+                fieldLabel("Phone"), phone,
+                fieldLabel("Username"), regUser,
+                fieldLabel("Password"), regPass,
+                spacer(6), register, regStatus);
+        form.setPadding(new Insets(16, 24, 20, 24));
         updateRegistrationFields();
-        return new Tab("Register", box);
+        return new Tab("Register", form);
     }
 
     private void updateRegistrationFields() {
         boolean individual = "Individual".equals(typeChoice.getValue());
-        for (javafx.scene.Node n : new javafx.scene.Node[]{firstLabel, firstName, surnameLabel, surname}) {
+        for (Node n : new Node[]{firstLabel, firstName, surnameLabel, surname}) {
             n.setVisible(individual);
             n.setManaged(individual);
         }
-        for (javafx.scene.Node n : new javafx.scene.Node[]{companyLabel, companyName}) {
+        for (Node n : new Node[]{companyLabel, companyName}) {
             n.setVisible(!individual);
             n.setManaged(!individual);
         }
@@ -151,9 +163,28 @@ public class LoginView {
         }
     }
 
+    private static Label fieldLabel(String text) {
+        Label label = new Label(text);
+        label.getStyleClass().add("field-label");
+        return label;
+    }
+
+    private static Region2 spacer(double height) {
+        return new Region2(height);
+    }
+
+    /** Small invisible node used to add vertical space. */
+    private static final class Region2 extends javafx.scene.layout.Region {
+        Region2(double height) {
+            setMinHeight(height);
+            setPrefHeight(height);
+        }
+    }
+
     private void show(Label label, String message, boolean error) {
         label.setText(message);
         label.setWrapText(true);
-        label.setStyle("-fx-text-fill: " + (error ? "#b00020" : "#1b7a2f") + ";");
+        label.getStyleClass().removeAll("status-success", "status-error");
+        label.getStyleClass().add(error ? "status-error" : "status-success");
     }
 }

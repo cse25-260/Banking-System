@@ -28,7 +28,7 @@ public class MainApp extends Application {
             Platform.exit();
             return;
         }
-        stage.setTitle("Banking System");
+        stage.setTitle("Owen National Bank");
         showLogin();
         stage.show();
     }

@@ -10,10 +10,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.function.Consumer;
@@ -48,7 +50,7 @@ public class LoginView {
         this.controller = controller;
         this.onLoginSuccess = onLoginSuccess;
 
-        Label title = new Label("Banking System");
+        Label title = new Label("Owen National Bank");
         title.getStyleClass().add("app-title");
         Label subtitle = new Label("Secure banking for individuals and companies");
         subtitle.getStyleClass().add("app-subtitle");
@@ -58,6 +60,7 @@ public class LoginView {
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(buildLoginTab(), buildRegisterTab());
 
+        VBox.setVgrow(tabs, Priority.ALWAYS);
         VBox card = new VBox(tabs);
         card.getStyleClass().add("card");
         card.setPadding(new Insets(8, 4, 4, 4));
@@ -119,7 +122,13 @@ public class LoginView {
                 spacer(6), register, regStatus);
         form.setPadding(new Insets(16, 24, 20, 24));
         updateRegistrationFields();
-        return new Tab("Register", form);
+
+        // The registration form is long, so it scrolls when the window is small.
+        ScrollPane scroll = new ScrollPane(form);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        return new Tab("Register", scroll);
     }
 
     private void updateRegistrationFields() {

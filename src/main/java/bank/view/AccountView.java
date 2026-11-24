@@ -62,7 +62,9 @@ public class AccountView {
         Label welcomeSub = new Label(controller.getCustomer().getCustomerType().equals("COMPANY")
                 ? "Company account holder" : "Personal account holder");
         welcomeSub.getStyleClass().add("welcome-sub");
-        VBox welcomeBox = new VBox(2, welcome, welcomeSub);
+        Label brand = new Label("OWEN NATIONAL BANK");
+        brand.getStyleClass().add("brand-label");
+        VBox welcomeBox = new VBox(2, brand, welcome, welcomeSub);
 
         Label chipCaption = new Label("TOTAL BALANCE");
         chipCaption.getStyleClass().add("chip-caption");
